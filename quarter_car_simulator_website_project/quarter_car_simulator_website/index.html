@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quarter-Car Active Suspension Test Rig Simulator</title>
+<style>
+:root{--bg:#07111f;--panel:#101e30;--panel2:#14263b;--line:#29435f;--text:#eaf3ff;--muted:#91a8c2;--cyan:#35c5f4;--blue:#4d8dff;--green:#35d39a;--orange:#ffb454;--red:#ff6b72}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#07111f,#0b1728 55%,#101c2e);color:var(--text);font:14px/1.45 Inter,Segoe UI,Arial,sans-serif}
+header{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;align-items:center;background:#091525cc;position:sticky;top:0;z-index:5;backdrop-filter:blur(12px)}
+h1{font-size:clamp(19px,2.4vw,28px);margin:0;letter-spacing:.2px}header p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.status{display:flex;align-items:center;gap:8px;color:var(--green);font-weight:700;font-size:12px;white-space:nowrap}.dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor}
+main{max-width:1600px;margin:auto;padding:18px;display:grid;grid-template-columns:minmax(280px,350px) minmax(0,1fr);gap:16px}
+.panel{background:linear-gradient(180deg,#122238,#0e1b2c);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px #0003;overflow:hidden}
+.panel-head{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.panel-head h2{font-size:14px;margin:0}.sub{color:var(--muted);font-size:11px}
+.controls{padding:14px 16px;display:grid;gap:12px}
+.group-title{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--cyan);font-weight:800;margin:5px 0 0}
+.control{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center}.control label{color:#c7d7e9;font-size:12px}.control output{font-variant-numeric:tabular-nums;color:#fff;font-size:12px;font-weight:700}
+input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--cyan);cursor:pointer}
+select,button{background:#1b3049;border:1px solid #355372;color:var(--text);border-radius:8px;padding:8px 10px;font:inherit}
+select{width:100%}button{cursor:pointer;font-weight:700}button:hover{border-color:var(--cyan);filter:brightness(1.12)}button.primary{background:linear-gradient(90deg,#087ca8,#1765b8);border:0}
+.button-row{display:flex;gap:8px;flex-wrap:wrap}.button-row button{flex:1}
+.note{margin:0 16px 15px;padding:10px 11px;border:1px solid #715b30;background:#302719;color:#f6d9a5;border-radius:9px;font-size:11px}
+.right{display:grid;gap:16px;min-width:0}.topgrid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(250px,.8fr);gap:16px}
+.visual{padding:8px 12px 12px;min-height:360px}.visual svg{width:100%;height:330px;display:block}
+.metrics{padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.metric{background:#0b1828;border:1px solid #233d58;border-radius:10px;padding:10px;min-width:0}
+.metric .name{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.6px}.metric .value{font-size:21px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}.metric .unit{font-size:10px;color:var(--muted);margin-left:3px}.metric small{display:block;color:#6f8aa8;font-size:10px;margin-top:2px}
+.chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.chart-wrap{padding:8px 12px 12px}.chart-wrap canvas{width:100%;height:170px;display:block}
+.param-table{width:100%;border-collapse:collapse;font-size:12px}.param-table td{padding:8px 14px;border-bottom:1px solid #20364e}.param-table td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#fff}.param-table tr:last-child td{border:0}
+footer{max-width:1600px;margin:0 auto;padding:0 18px 22px;color:#829ab4;font-size:11px}
+@media(max-width:1000px){main{grid-template-columns:1fr}.topgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){header{position:static;padding:16px}.topgrid,.chart-grid{grid-template-columns:1fr}.visual{min-height:300px}.visual svg{height:290px}.metrics{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+ <div><h1>ACTIVE QUARTER-CAR SUSPENSION TEST RIG</h1><p>Interactive concept simulator · dual road rollers · PID active suspension</p></div>
+ <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">SIMULATION RUNNING</span></div>
+</header>
+<main>
+ <aside class="panel">
+  <div class="panel-head"><h2>Simulation controls</h2><span class="sub">Live parameters</span></div>
+  <div class="controls">
+   <div class="button-row"><button class="primary" id="toggleBtn">Ⅱ Pause</button><button id="resetBtn">↺ Reset</button></div>
+   <div><label class="sub" for="mode">Suspension mode</label><select id="mode"><option value="active">Active · PID enabled</option><option value="passive">Passive · actuator disabled</option></select></div>
+   <div class="group-title">Quarter-car model</div>
+   <div class="control"><label for="ms">Sprung mass</label><output id="msOut"></output><input id="ms" type="range" min="150" max="500" step="5" value="300"></div>
+   <div class="control"><label for="mu">Unsprung mass</label><output id="muOut"></output><input id="mu" type="range" min="20" max="100" step="1" value="40"></div>
+   <div class="control"><label for="ks">Suspension stiffness</label><output id="ksOut"></output><input id="ks" type="range" min="8000" max="40000" step="500" value="16000"></div>
+   <div class="control"><label for="cs">Suspension damping</label><output id="csOut"></output><input id="cs" type="range" min="300" max="3000" step="50" value="1200"></div>
+   <div class="control"><label for="kt">Tyre stiffness</label><output id="ktOut"></output><input id="kt" type="range" min="80000" max="250000" step="5000" value="180000"></div>
+   <div class="control"><label for="ct">Tyre damping</label><output id="ctOut"></output><input id="ct" type="range" min="0" max="1500" step="25" value="150"></div>
+   <div class="group-title">Road simulation rollers</div>
+   <div class="control"><label for="amp">Road input amplitude</label><output id="ampOut"></output><input id="amp" type="range" min="1" max="30" step="1" value="10"></div>
+   <div class="control"><label for="freq">Road excitation frequency</label><output id="freqOut"></output><input id="freq" type="range" min=".5" max="5" step=".1" value="1.5"></div>
+   <div class="control"><label for="rpm">Roller speed (equivalent)</label><output id="rpmOut"></output><input id="rpm" type="range" min="30" max="300" step="5" value="90"></div>
+   <div class="group-title">Active actuator / PID</div>
+   <div class="control"><label for="kp">Proportional gain Kp</label><output id="kpOut"></output><input id="kp" type="range" min="0" max="30000" step="250" value="8000"></div>
+   <div class="control"><label for="ki">Integral gain Ki</label><output id="kiOut"></output><input id="ki" type="range" min="0" max="10000" step="100" value="500"></div>
+   <div class="control"><label for="kd">Derivative gain Kd</label><output id="kdOut"></output><input id="kd" type="range" min="0" max="5000" step="50" value="1200"></div>
+   <div class="control"><label for="fmax">Actuator force limit</label><output id="fmaxOut"></output><input id="fmax" type="range" min="100" max="3000" step="50" value="1200"></div>
+  </div>
+  <p class="note"><b>Engineering note:</b> Values are illustrative starting assumptions, not measured prototype data. Tune them using your actual masses, spring/damper data, actuator limits and roller geometry.</p>
+ </aside>
+ <section class="right">
+  <div class="topgrid">
+   <div class="panel">
+    <div class="panel-head"><h2>Live mechanical rig visualization</h2><span class="sub">Schematic · not to scale</span></div>
+    <div class="visual">
+     <svg viewBox="0 0 720 340" role="img" aria-label="Animated quarter-car suspension rig with actuator, coilover, wheel and two rollers">
+      <defs>
+       <linearGradient id="steel" x1="0" x2="1"><stop stop-color="#1b4770"/><stop offset=".5" stop-color="#4d88bd"/><stop offset="1" stop-color="#173b60"/></linearGradient>
+       <linearGradient id="tire" x1="0" x2="1"><stop stop-color="#182331"/><stop offset=".5" stop-color="#526274"/><stop offset="1" stop-color="#111c29"/></linearGradient>
+       <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <g stroke="#34516f" stroke-width="1" opacity=".5"><path d="M30 300H690M80 30V300M640 30V300"/></g>
+      <!-- frame -->
+      <g fill="url(#steel)" stroke="#8dbce3" stroke-width="1.2">
+       <rect x="105" y="28" width="20" height="270" rx="3"/><rect x="535" y="28" width="20" height="270" rx="3"/>
+       <rect x="105" y="28" width="450" height="20" rx="3"/><rect x="105" y="280" width="450" height="18" rx="3"/>
+       <rect x="125" y="92" width="410" height="16" rx="2"/>
+       <rect x="125" y="260" width="410" height="12" rx="2"/>
+      </g>
+      <!-- actuator body and rod -->
+      <g id="actuator">
+       <rect x="320" y="48" width="42" height="65" rx="6" fill="#243f5d" stroke="#74b8ed" stroke-width="2"/>
+       <rect x="335" y="107" width="12" height="60" fill="#c7d8e8" stroke="#6e8ba6"/>
+       <rect x="310" y="164" width="62" height="10" rx="3" fill="#8cb4d4"/>
+       <text x="382" y="72" fill="#b9d6ef" font-size="12">LINEAR ACTUATOR</text>
+      </g>
+      <!-- sprung mass -->
+      <g id="bodyMass"><rect x="270" y="115" width="145" height="30" rx="5" fill="#245a86" stroke="#7fc5f5" stroke-width="2"/><text x="342" y="134" text-anchor="middle" fill="white" font-size="12">SPRUNG MASS</text></g>
+      <!-- coilover spring -->
+      <g id="coil">
+       <path id="springPath" d="M342 146 L325 153 L359 160 L325 167 L359 174 L325 181 L359 188 L325 195 L359 202 L342 210" fill="none" stroke="#ffb454" stroke-width="4" stroke-linejoin="round"/>
+       <rect x="337" y="145" width="10" height="65" fill="none" stroke="#e7eef8" stroke-width="2"/>
+       <text x="390" y="188" fill="#ffd18f" font-size="12">COILOVER</text>
+      </g>
+      <!-- wheel -->
+      <g id="wheel">
+       <circle cx="342" cy="231" r="49" fill="url(#tire)" stroke="#9eafc0" stroke-width="4"/>
+       <circle cx="342" cy="231" r="27" fill="#8295a9" stroke="#d4e0ea" stroke-width="3"/>
+       <circle cx="342" cy="231" r="9" fill="#273e56"/>
+       <g stroke="#d8e4ef" stroke-width="3"><path d="M342 204V258M315 231H369M323 212L361 250M361 212L323 250"/></g>
+      </g>
+      <!-- rollers -->
+      <g id="rollers">
+       <circle id="roller1" cx="303" cy="291" r="24" fill="#38566f" stroke="#8fc7ec" stroke-width="3"/>
+       <circle id="roller2" cx="381" cy="291" r="24" fill="#38566f" stroke="#8fc7ec" stroke-width="3"/>
+       <g stroke="#d1eaff" stroke-width="2"><path id="rollerSpoke1" d="M303 271V311M283 291H323"/><path id="rollerSpoke2" d="M381 271V311M361 291H401"/></g>
+       <text x="430" y="294" fill="#a9c6df" font-size="11">TWO ROAD ROLLERS</text>
+      </g>
+      <g fill="#9db5ce" font-size="10"><text x="35" y="55">FRAME</text><text x="35" y="68">1800 × 1200 × 900 mm*</text><text x="35" y="322">*Proposed envelope; schematic not to scale</text></g>
+     </svg>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="panel-head"><h2>Live measured outputs</h2><span class="sub">Simulation values</span></div>
+    <div class="metrics">
+     <div class="metric"><div class="name">Body acceleration</div><div class="value" id="bodyAcc">0.00<span class="unit">m/s²</span></div><small>Sprung mass</small></div>
+     <div class="metric"><div class="name">Body displacement</div><div class="value" id="bodyDisp">0.00<span class="unit">mm</span></div><small>Relative to static position</small></div>
+     <div class="metric"><div class="name">Wheel displacement</div><div class="value" id="wheelDisp">0.00<span class="unit">mm</span></div><small>Unsprung mass</small></div>
+     <div class="metric"><div class="name">Control force</div><div class="value" id="force">0<span class="unit">N</span></div><small>Actuator command</small></div>
+     <div class="metric"><div class="name">Suspension travel</div><div class="value" id="travel">0.00<span class="unit">mm</span></div><small>Body minus wheel</small></div>
+     <div class="metric"><div class="name">Tyre deflection</div><div class="value" id="tyreDef">0.00<span class="unit">mm</span></div><small>Wheel minus road</small></div>
+     <div class="metric"><div class="name">Road displacement</div><div class="value" id="roadDisp">0.00<span class="unit">mm</span></div><small>Roller excitation input</small></div>
+     <div class="metric"><div class="name">Simulation time</div><div class="value" id="simTime">0.00<span class="unit">s</span></div><small>Elapsed simulated time</small></div>
+    </div>
+   </div>
+  </div>
+  <div class="chart-grid">
+   <div class="panel"><div class="panel-head"><h2>Body & wheel displacement</h2><span class="sub">mm vs time</span></div><div class="chart-wrap"><canvas id="dispChart" width="700" height="210"></canvas></div></div>
+   <div class="panel"><div class="panel-head"><h2>Body acceleration</h2><span class="sub">m/s² vs time</span></div><div class="chart-wrap"><canvas id="accChart" width="700" height="210"></canvas></div></div>
+   <div class="panel"><div class="panel-head"><h2>Actuator control force</h2><span class="sub">N vs time</span></div><div class="chart-wrap"><canvas id="forceChart" width="700" height="210"></canvas></div></div>
+   <div class="panel"><div class="panel-head"><h2>Suspension & tyre travel</h2><span class="sub">mm vs time</span></div><div class="chart-wrap"><canvas id="travelChart" width="700" height="210"></canvas></div></div>
+  </div>
+  <div class="panel">
+   <div class="panel-head"><h2>Current model parameters</h2><span class="sub">Editable on left</span></div>
+   <table class="param-table">
+    <tbody>
+     <tr><td>Sprung mass, m<sub>s</sub></td><td id="pms">300 kg</td><td>Unsprung mass, m<sub>u</sub></td><td id="pmu">40 kg</td></tr>
+     <tr><td>Suspension stiffness, k<sub>s</sub></td><td id="pks">16,000 N/m</td><td>Suspension damping, c<sub>s</sub></td><td id="pcs">1,200 N·s/m</td></tr>
+     <tr><td>Tyre stiffness, k<sub>t</sub></td><td id="pkt">180,000 N/m</td><td>Tyre damping, c<sub>t</sub></td><td id="pct">150 N·s/m</td></tr>
+     <tr><td>Road amplitude</td><td id="pamp">10 mm</td><td>Road frequency</td><td id="pfreq">1.5 Hz</td></tr>
+     <tr><td>PID gains</td><td id="ppid">8000 / 500 / 1200</td><td>Force saturation</td><td id="pfmax">±1,200 N</td></tr>
+    </tbody>
+   </table>
+  </div>
+ </section>
+</main>
+<footer>
+This browser simulator is a simplified 2-DOF quarter-car mathematical model with a PID force controller and sinusoidal road input representing roller excitation. It is not a multibody CAD/FEA model, does not calculate frame stresses, and does not certify the prototype. Use measured component data and validate the model before relying on results for design or safety decisions.
+</footer>
+<script>
+const $=id=>document.getElementById(id);
+const ids=['ms','mu','ks','cs','kt','ct','amp','freq','rpm','kp','ki','kd','fmax'];
+const units={ms:'kg',mu:'kg',ks:'N/m',cs:'N·s/m',kt:'N/m',ct:'N·s/m',amp:'mm',freq:'Hz',rpm:'rpm',kp:'',ki:'',kd:'',fmax:'N'};
+const fmt=(v)=>Number(v).toLocaleString('en-US',{maximumFractionDigits:1});
+function params(){let p={};ids.forEach(id=>p[id]=Number($(id).value));return p}
+function updateLabels(){let p=params();ids.forEach(id=>$(id+'Out').textContent=fmt(p[id])+(units[id]?' '+units[id]:''));$('pms').textContent=fmt(p.ms)+' kg';$('pmu').textContent=fmt(p.mu)+' kg';$('pks').textContent=fmt(p.ks)+' N/m';$('pcs').textContent=fmt(p.cs)+' N·s/m';$('pkt').textContent=fmt(p.kt)+' N/m';$('pct').textContent=fmt(p.ct)+' N·s/m';$('pamp').textContent=fmt(p.amp)+' mm';$('pfreq').textContent=fmt(p.freq)+' Hz';$('ppid').textContent=`${fmt(p.kp)} / ${fmt(p.ki)} / ${fmt(p.kd)}`;$('pfmax').textContent='±'+fmt(p.fmax)+' N'}
+ids.forEach(id=>$(id).addEventListener('input',()=>{updateLabels(); if(['ms','mu','ks','cs','kt','ct','kp','ki','kd','fmax'].includes(id)) integral=0}));
+let running=true,t=0,zs=0,zu=0,vs=0,vu=0,accs=0,force=0,integral=0,prevErr=0,road=0,roadV=0;
+const dt=.001,history=[],maxPts=800;
+function reset(){t=0;zs=zu=vs=vu=accs=force=integral=prevErr=road=roadV=0;history.length=0;drawAll();updateMetrics()}
+function roadAt(time,p){let w=2*Math.PI*p.freq;return {x:p.amp/1000*Math.sin(w*time),v:p.amp/1000*w*Math.cos(w*time)}}
+function step(){
+ const p=params(),r=roadAt(t,p);road=r.x;roadV=r.v;
+ const err=-zs; integral=Math.max(-.5,Math.min(.5,integral+err*dt));
+ const deriv=-vs;
+ force=$('mode').value==='active'?p.kp*err+p.ki*integral+p.kd*deriv:0;
+ force=Math.max(-p.fmax,Math.min(p.fmax,force));
+ const suspForce=p.ks*(zu-zs)+p.cs*(vu-vs);
+ const tyreForce=p.kt*(road-zu)+p.ct*(roadV-vu);
+ accs=(suspForce+force)/p.ms;
+ const accu=(-suspForce+tyreForce-force)/p.mu;
+ // Semi-implicit Euler integration
+ vs+=accs*dt;vu+=accu*dt;zs+=vs*dt;zu+=vu*dt;t+=dt;
+ if(!Number.isFinite(zs)||Math.abs(zs)>2||Math.abs(zu)>2){reset();return}
+ if(Math.floor(t*100)%5===0){history.push({t,zs:zs*1000,zu:zu*1000,a:accs,f:force,tr:(zs-zu)*1000,td:(zu-road)*1000});if(history.length>maxPts)history.shift()}
+}
+function metric(id,v,dec=2){$(id).innerHTML=fmt(v.toFixed(dec))+'<span class="unit">'+({bodyAcc:'m/s²',bodyDisp:'mm',wheelDisp:'mm',force:'N',travel:'mm',tyreDef:'mm',roadDisp:'mm',simTime:'s'}[id])+'</span>'}
+function updateMetrics(){metric('bodyAcc',accs,2);metric('bodyDisp',zs*1000,2);metric('wheelDisp',zu*1000,2);metric('force',force,0);metric('travel',(zs-zu)*1000,2);metric('tyreDef',(zu-road)*1000,2);metric('roadDisp',road*1000,2);metric('simTime',t,2)}
+function drawChart(canvasId,series){const cv=$(canvasId),ctx=cv.getContext('2d'),w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#0b1828';ctx.fillRect(0,0,w,h);
+ let vals=history.flatMap(d=>series.map(s=>d[s.k]));let max=Math.max(1,...vals.map(Math.abs))*1.15;let minT=history.length?history[0].t:0,maxT=history.length?history[history.length-1].t:10;
+ ctx.strokeStyle='#243b54';ctx.lineWidth=1;for(let i=0;i<=4;i++){let y=12+i*(h-32)/4;ctx.beginPath();ctx.moveTo(42,y);ctx.lineTo(w-10,y);ctx.stroke();ctx.fillStyle='#7e96af';ctx.font='11px Arial';ctx.fillText((max-(2*max*i/4)).toFixed(1),3,y+4)}
+ ctx.strokeStyle='#425a74';ctx.beginPath();ctx.moveTo(42,h-20);ctx.lineTo(w-10,h-20);ctx.stroke();
+ series.forEach(s=>{ctx.strokeStyle=s.color;ctx.lineWidth=2;ctx.beginPath();history.forEach((d,i)=>{let x=42+(d.t-minT)/Math.max(.01,maxT-minT)*(w-55),y=(h/2)-(d[s.k]/max)*(h/2-15);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();ctx.fillStyle=s.color;ctx.fillRect(50+series.indexOf(s)*170,4,12,3);ctx.fillStyle='#b7c9dc';ctx.font='11px Arial';ctx.fillText(s.label,66+series.indexOf(s)*170,10)});
+ ctx.fillStyle='#8199b2';ctx.font='10px Arial';ctx.fillText('Time (s)',w-55,h-3);
+}
+function drawRig(){let p=params(),body=$('bodyMass'),wheel=$('wheel'),coil=$('coil'),act=$('actuator');
+ const dy=Math.max(-24,Math.min(24,-zs*1000*.65)),wy=Math.max(-20,Math.min(20,-zu*1000*.65)),ry=Math.max(-10,Math.min(10,-road*1000*.45));
+ body.setAttribute('transform',`translate(0 ${dy})`);wheel.setAttribute('transform',`translate(0 ${wy})`);coil.setAttribute('transform',`translate(0 ${dy}) scale(1 ${Math.max(.72,Math.min(1.3,1+(dy-wy)/120))})`);act.setAttribute('transform',`translate(0 ${dy*.35})`);
+ $('rollers').setAttribute('transform',`translate(0 ${ry})`);
+}
+function drawAll(){drawChart('dispChart',[{k:'zs',label:'Body',color:'#35c5f4'},{k:'zu',label:'Wheel',color:'#ffb454'}]);drawChart('accChart',[{k:'a',label:'Body acceleration',color:'#35d39a'}]);drawChart('forceChart',[{k:'f',label:'Actuator force',color:'#ff8c69'}]);drawChart('travelChart',[{k:'tr',label:'Suspension',color:'#35c5f4'},{k:'td',label:'Tyre',color:'#ffb454'}]);}
+let last=performance.now(),accumulator=0;
+function animate(now){let elapsed=Math.min(.05,(now-last)/1000);last=now;if(running){accumulator+=elapsed;let n=0;while(accumulator>=dt&&n<100){step();accumulator-=dt;n++}updateMetrics();drawRig();drawAll()}requestAnimationFrame(animate)}
+$('toggleBtn').onclick=()=>{running=!running;$('toggleBtn').textContent=running?'Ⅱ Pause':'▶ Run';$('statusText').textContent=running?'SIMULATION RUNNING':'SIMULATION PAUSED';$('statusDot').style.color=running?'var(--green)':'var(--orange)'};
+$('resetBtn').onclick=reset;
+$('mode').onchange=()=>{integral=0;force=0};
+updateLabels();reset();requestAnimationFrame(animate);
+</script>
+</body></html>
